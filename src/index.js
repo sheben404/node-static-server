@@ -11,6 +11,13 @@ const compare = require('natural-compare')
 // img12.png           img10.png
 // img2.png            img12.png
 
+// Node.js 内置了 zlib 模块提供了压缩功能
+const zlib = require('zlib');
+// 用来判断一个文件是否需要被压缩
+const compressible = require('compressible');
+// 获取 http 请求头中的内容
+const accepts = require('accepts');
+
 
 const defaultConf = require('./config')
 
@@ -29,7 +36,7 @@ class StaticServer {
       const {url, method} = req
       if (method !== 'GET') {
         res.writeHead(404, {
-          'content-type': 'text/html; charset=utf-8'
+          'Content-Type': 'text/html; charset=utf-8'
         })
         res.end('请使用 GET 方法访问文件！')
         return false
@@ -39,7 +46,7 @@ class StaticServer {
       fs.access(filePath, fs.constants.R_OK, err => {
         if (err) {
           res.writeHead(404, {
-            'content-type': 'text/html; charset=utf-8'
+            'Content-Type': 'text/html; charset=utf-8'
           })
           res.end('文件不存在！')
         } else {
@@ -64,7 +71,7 @@ class StaticServer {
             }
             dir.close()
             res.writeHead(200, {
-              'content-type': mime.contentType(path.extname(url))
+              'Content-Type': mime.contentType(path.extname(url))
             })
 
             list.sort((x, y) => {
@@ -81,10 +88,42 @@ class StaticServer {
             const html = template({list})
             res.end(html)
           } else {
-            res.writeHead(200, {
-              // mime.contentType() 方法可以根据传入的 后缀名 返回对应的 content-type
-              'content-type': mime.contentType(path.extname(url))
-            })
+            const contentType = mime.contentType(path.extname(url));
+            let compression;
+
+            if (compressible(contentType)) {
+              // 获取 http 请求头中的内容，以数组的形式存储
+              const encodings = accepts(req).encodings()
+              const serverCompatibleCompressions = [
+                {method: 'gzip', stream: zlib.createGzip()},
+                {method: 'deflate', stream: zlib.createDeflate()},
+                {method: 'br', stream: zlib.createBrotliCompress()}
+              ]
+
+              // 按照浏览器指定优先级在服务器选择压缩方式
+              for (let i = 0; i < encodings.length; i++) {
+                compression = serverCompatibleCompressions.find(com => com.method === encodings[i])
+                if (compression) {
+                  break
+                }
+              }
+            }
+
+            if (compression) {
+              res.writeHead(200, {
+                'Content-Type': contentType,
+                // 指定服务器使用的压缩方式，浏览器使用相应的解压缩方式
+                'Content-Encodig': compression.method,
+              })
+              // 由此可以看出来 compress.stream 是一个 transform 流
+              fs.createReadStream(filePath).pipe(compression.stream).pipe(res)
+            } else {
+              res.writeHead(200, {
+                'Content-Type': contentType
+              })
+              fs.createReadStream(filePath).pipe(res)
+            }
+
             fs.createReadStream(filePath).pipe(res)
           }
         }
