@@ -1,12 +1,14 @@
 {
   "name": "node-static-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "index.js",
   "license": "MIT",
   "scripts": {
     "test": "node test.js"
   },
   "dependencies": {
-    "mime-types": "^2.1.32"
+    "handlebars": "^4.7.7",
+    "mime-types": "^2.1.32",
+    "natural-compare": "^1.4.0"
   }
 }
