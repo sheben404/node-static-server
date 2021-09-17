@@ -18,8 +18,8 @@ const compressible = require('compressible');
 // 获取 http 请求头中的内容
 const accepts = require('accepts');
 
-
 const defaultConf = require('./config')
+const handleCache = require('./cache')
 
 const htmlTpl = fs.readFileSync(path.join(__dirname, './template/directory.hbs'))
 const template = handlebars.compile(htmlTpl.toString())
@@ -88,7 +88,11 @@ class StaticServer {
             const html = template({list})
             res.end(html)
           } else {
+            handleCache(req, res)
+
             const contentType = mime.contentType(path.extname(url));
+            res.setHeader('Content-Type', contentType)
+
             let compression;
 
             if (compressible(contentType)) {
@@ -109,22 +113,16 @@ class StaticServer {
               }
             }
 
-            if (compression) {
-              res.writeHead(200, {
-                'Content-Type': contentType,
-                // 指定服务器使用的压缩方式，浏览器使用相应的解压缩方式
-                'Content-Encodig': compression.method,
-              })
-              // 由此可以看出来 compress.stream 是一个 transform 流
-              fs.createReadStream(filePath).pipe(compression.stream).pipe(res)
+            if (res.statusCode !== 304) {
+              if (compression) {
+                res.setHeader('Content-Encoding', compression.method);
+                fs.createReadStream(filePath).pipe(compression.stream).pipe(res);
+              } else {
+                fs.createReadStream(filePath).pipe(res);
+              }
             } else {
-              res.writeHead(200, {
-                'Content-Type': contentType
-              })
-              fs.createReadStream(filePath).pipe(res)
+              res.end('')
             }
-
-            fs.createReadStream(filePath).pipe(res)
           }
         }
       })
