@@ -1,8 +1,5 @@
 function compose(middleware) {
   return function (context) {
-    // 从第一个中间件开始调用
-    return dispatch(0);
-
     /**
      * 调用指定 index 的中间件，为其传入 next 参数为下一个中间件的 dispatch
      * @param {Number} i 中间件 index
@@ -12,7 +9,7 @@ function compose(middleware) {
       // 当前中间件函数
       let fn = middleware[i];
 
-      // 中间件都被调用后
+      // 实现最后一个中间件可以使用 next 方法而不报错
       if (i === middleware.length) {
         return Promise.resolve();
       }
@@ -28,6 +25,9 @@ function compose(middleware) {
         return Promise.reject(ex);
       }
     }
+
+    // 从第一个中间件开始调用
+    return dispatch(0);
   }
 }
 
