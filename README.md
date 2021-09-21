@@ -1,4 +1,4 @@
-# node-static=server
+# node-static-server
 
 #### 测试
 ```shell
